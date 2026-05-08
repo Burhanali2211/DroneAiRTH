@@ -30,7 +30,7 @@ DroneGuard AI trains an LSTM neural network on realistic drone sensor data (IMU,
 
 **Created by Burhan Ali**  
 GitHub: [@Burhanali2211](https://github.com/Burhanali2211)  
-Email: easyio.tech@gmail.com
+Email: gamingcristy19@gmail.com
 
 > This project was designed and built from scratch as original research work.  
 > **Permission is required** before using, adapting, or redistributing any part of this codebase. See [License](#license).
