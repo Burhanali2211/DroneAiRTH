@@ -18,9 +18,17 @@ from pathlib import Path
 from collections import deque
 
 from src.simulator.sensor_simulator import DroneSensorSimulator
+from src.config_loader import get_config
 
 
-TARGET = np.array([3.0, 2.0])
+def _target() -> np.ndarray:
+    try:
+        return np.array(get_config()['mission']['target'], dtype=np.float32)
+    except Exception:
+        return np.array([3.0, 2.0], dtype=np.float32)
+
+
+TARGET = _target()   # module-level alias; resolved after config loads
 
 # ── Real hardware noise constants (datasheet-sourced) ─────────────────────────
 IMU_ACCEL_NOISE  = 0.05     # m/s²       MPU-6050 spec

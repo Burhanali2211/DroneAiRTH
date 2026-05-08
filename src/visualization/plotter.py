@@ -36,7 +36,18 @@ def plot_all(history, simulator, ai, output_dir: str = 'outputs'):
 
     has_history = bool(history.history.get('loss'))
 
-    df       = pd.DataFrame(simulator.log)
+    if not simulator.log:
+        print("[PLOT] No flight log data — skipping plots.")
+        return
+
+    df = pd.DataFrame(simulator.log)
+
+    # Ensure prob columns exist (older CSV logs may not have them)
+    for col, default in [('prob_continue', 0.25), ('prob_hover', 0.25),
+                         ('prob_rth', 0.25), ('prob_land', 0.25)]:
+        if col not in df.columns:
+            df[col] = default
+
     jam_mask = df['jammed'].values.astype(bool)
     t        = df['t'].values
 
@@ -185,19 +196,20 @@ def plot_all(history, simulator, ai, output_dir: str = 'outputs'):
     print(f"[PLOT] Saved: {flight_path}")
 
     # ── Training history (separate figure) ────────────────────────────
-    fig2, (a1, a2) = plt.subplots(1, 2, figsize=(10, 4))
-    fig2.suptitle('Training History', fontweight='bold')
-    a1.plot(history.history['loss'],     label='Train', color='steelblue')
-    a1.plot(history.history['val_loss'], label='Val',   color='orange')
-    a1.set_title('Loss'); a1.set_xlabel('Epoch')
-    a1.legend(); a1.grid(True, alpha=0.3)
-    a2.plot(history.history['accuracy'],     label='Train', color='steelblue')
-    a2.plot(history.history['val_accuracy'], label='Val',   color='orange')
-    a2.set_title('Accuracy'); a2.set_xlabel('Epoch')
-    a2.set_ylim(0, 1.05); a2.legend(); a2.grid(True, alpha=0.3)
-    plt.tight_layout()
-    history_path = out / 'training_history.png'
-    plt.savefig(str(history_path), dpi=150, bbox_inches='tight')
-    print(f"[PLOT] Saved: {history_path}")
+    if has_history:
+        fig2, (a1, a2) = plt.subplots(1, 2, figsize=(10, 4))
+        fig2.suptitle('Training History', fontweight='bold')
+        a1.plot(history.history['loss'],     label='Train', color='steelblue')
+        a1.plot(history.history['val_loss'], label='Val',   color='orange')
+        a1.set_title('Loss'); a1.set_xlabel('Epoch')
+        a1.legend(); a1.grid(True, alpha=0.3)
+        a2.plot(history.history['accuracy'],     label='Train', color='steelblue')
+        a2.plot(history.history['val_accuracy'], label='Val',   color='orange')
+        a2.set_title('Accuracy'); a2.set_xlabel('Epoch')
+        a2.set_ylim(0, 1.05); a2.legend(); a2.grid(True, alpha=0.3)
+        plt.tight_layout()
+        history_path = out / 'training_history.png'
+        plt.savefig(str(history_path), dpi=150, bbox_inches='tight')
+        print(f"[PLOT] Saved: {history_path}")
 
     plt.close('all')

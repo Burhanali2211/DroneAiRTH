@@ -6,7 +6,9 @@ Usage:
     python simulate.py --jam_start 8 --jam_dur 15
 """
 import argparse
+import sys
 import warnings
+from pathlib import Path
 warnings.filterwarnings('ignore')
 
 from src.model.drone_ai import DroneAI
@@ -19,7 +21,15 @@ def main(jam_start: float = 6.0, jam_dur: float = 12.0):
     print("DRONE AI — MISSION SIMULATION")
     print("=" * 65)
 
-    ai  = DroneAI.load(model_dir='models')
+    model_dir = Path('models')
+    required  = ['drone_ai_model.keras', 'scaler.json', 'feature_names.txt']
+    missing   = [f for f in required if not (model_dir / f).exists()]
+    if missing:
+        print(f"[ERROR] Model files not found in models/: {missing}")
+        print("        Run  python train.py  first to train and save the model.")
+        sys.exit(1)
+
+    ai  = DroneAI.load(model_dir=str(model_dir))
     sim = MissionSimulator(ai)
     sim.run(duration=30.0, dt=0.02, jam_start=jam_start, jam_dur=jam_dur)
 
