@@ -1,0 +1,30 @@
+model:
+  conf_threshold: 0.72
+  vote_window: 3
+  sequence_window: 10
+  battery_critical: 10.0
+  battery_low: 20.0
+  jam_high: 0.85
+
+mission:
+  target: [3.0, 2.0]
+  home: [0.0, 0.0]
+  cruise_alt: 1.2
+  max_speed: 2.0
+  max_land_alt: 8.0
+  max_range_from_home: 15.0
+  descent_rate: 0.4
+
+simulation:
+  duration: 30.0
+  dt: 0.02
+  jam_start: 6.0
+  jam_dur: 12.0
+  seed: 7
+
+training:
+  num_samples: 10000
+  epochs: 60
+  batch_size: 64
+  window: 10
+  seed: 42

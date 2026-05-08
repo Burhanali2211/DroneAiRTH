@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Generated data / artifacts
+data/
+logs/
+outputs/
+
+# Trained models (keep .keras and .tflite, ignore old formats)
+models/*.h5
+models/scaler.json
+models/feature_names.txt
+
+# Secrets / config overrides
+.env
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Build
+dist/
+build/
+*.egg-info/

@@ -1,0 +1,19 @@
+# ── Core AI / ML ──────────────────────────────────────────────────────────────
+tensorflow>=2.13,<2.16       # Training + Keras model (laptop / server)
+numpy>=1.24,<2.0
+scikit-learn>=1.3,<1.5       # StandardScaler, train_test_split, metrics
+pandas>=2.0,<3.0             # Flight log CSV generation
+
+# ── Visualization ─────────────────────────────────────────────────────────────
+matplotlib>=3.7,<4.0         # Training plots
+plotly>=5.18,<6.0            # Animated Streamlit dashboard
+streamlit>=1.32,<2.0         # app.py browser UI
+
+# ── MAVLink / Flight controller ───────────────────────────────────────────────
+pymavlink>=2.4.37            # MAVLink bridge (optional — sim runs without it)
+
+# ── Config ────────────────────────────────────────────────────────────────────
+PyYAML>=6.0,<7.0             # config.yaml loader
+
+# ── Raspberry Pi / Edge deployment (install instead of tensorflow) ─────────────
+# tflite-runtime>=2.14        # Uncomment on RPi — replaces full TF
