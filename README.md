@@ -144,8 +144,8 @@ DroneSimulation Project NIT/
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/Burhanali2211/DroneSimulation-Project-NIT.git
-cd "DroneSimulation-Project-NIT"
+git clone https://github.com/Burhanali2211/DroneAiRTH.git
+cd "DroneAiRTH"
 pip install -r requirements.txt
 
 # 2. Train the AI model
