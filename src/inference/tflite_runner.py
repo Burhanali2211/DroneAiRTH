@@ -15,7 +15,17 @@ ACTION_NAMES   = ['CONTINUE_TO_TARGET','HOVER_AT_TARGET','RETURN_HOME','EMERGENC
 class TFLiteRunner:
     def __init__(self, model_dir='models'):
         d = Path(model_dir)
-        # Load tflite interpreter
+        tflite_path = d / 'drone_ai_model.tflite'
+        scaler_path = d / 'scaler.json'
+        feat_path   = d / 'feature_names.txt'
+
+        missing = [str(p) for p in (tflite_path, scaler_path, feat_path) if not p.exists()]
+        if missing:
+            raise FileNotFoundError(
+                f"[TFLite] Missing files in '{model_dir}/': {missing}. "
+                "Run train.py --export-tflite first."
+            )
+
         try:
             import tflite_runtime.interpreter as tflite
             Interpreter = tflite.Interpreter
@@ -23,18 +33,23 @@ class TFLiteRunner:
             import tensorflow as tf
             Interpreter = tf.lite.Interpreter
 
-        self.interpreter = Interpreter(model_path=str(d / 'drone_ai_model.tflite'))
-        self.interpreter.allocate_tensors()
-        self._in  = self.interpreter.get_input_details()[0]
-        self._out = self.interpreter.get_output_details()[0]
+        try:
+            self.interpreter = Interpreter(model_path=str(tflite_path))
+            self.interpreter.allocate_tensors()
+            self._in  = self.interpreter.get_input_details()[0]
+            self._out = self.interpreter.get_output_details()[0]
 
-        sd = json.loads((d / 'scaler.json').read_text())
-        self.mean_   = np.array(sd['mean'],  dtype=np.float32)
-        self.scale_  = np.array(sd['scale'], dtype=np.float32)
-        self.window  = sd['window']
-        self.n_features = sd['n_features']
+            sd = json.loads(scaler_path.read_text())
+            self.mean_      = np.array(sd['mean'],  dtype=np.float32)
+            self.scale_     = np.array(sd['scale'], dtype=np.float32)
+            self.window     = sd['window']
+            self.n_features = sd['n_features']
 
-        self.feature_names = (d / 'feature_names.txt').read_text().splitlines()
+            self.feature_names = feat_path.read_text().splitlines()
+        except Exception as e:
+            raise RuntimeError(
+                f"[TFLite] Failed to initialise runner from '{model_dir}/': {e}"
+            ) from e
 
         self._frame_buffer   = deque(maxlen=self.window)
         self._vote_buffer    = deque(maxlen=VOTE_WINDOW)

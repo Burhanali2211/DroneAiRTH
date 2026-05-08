@@ -146,11 +146,14 @@ class MissionSimulator:
         self._print_summary(jam_dur)
 
         # Auto-save flight log
-        log_dir = Path('logs')
-        log_dir.mkdir(exist_ok=True)
-        log_path = log_dir / f"sim_{int(t*100):06d}.csv"
-        pd.DataFrame(self.log).to_csv(str(log_path), index=False)
-        print(f"[SIM] Flight log saved: {log_path}")
+        try:
+            log_dir = Path('logs')
+            log_dir.mkdir(exist_ok=True)
+            log_path = log_dir / f"sim_{int(t*100):06d}.csv"
+            pd.DataFrame(self.log).to_csv(str(log_path), index=False)
+            print(f"[SIM] Flight log saved: {log_path}")
+        except OSError as e:
+            print(f"[SIM] Warning: could not save flight log: {e}")
 
     # ------------------------------------------------------------------
 

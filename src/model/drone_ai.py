@@ -26,11 +26,26 @@ from tensorflow.keras import layers
 import warnings
 warnings.filterwarnings('ignore')
 
+from src.config_loader import get_config
 
-# Hysteresis thresholds
-CONF_THRESHOLD  = 0.72   # min confidence to accept an action switch
-VOTE_WINDOW     = 3      # consecutive agreeing predictions before switching
-SEQUENCE_WINDOW = 10     # frames fed to LSTM (10 × 20ms = 200ms context)
+
+def _mcfg():
+    try:
+        c = get_config()
+        return c.get('model', {})
+    except Exception:
+        return {}
+
+
+# Hysteresis thresholds — read from config at call time; fall back to safe defaults
+def _conf_threshold():  return _mcfg().get('conf_threshold',  0.72)
+def _vote_window():     return _mcfg().get('vote_window',     3)
+def _sequence_window(): return _mcfg().get('sequence_window', 10)
+
+# Module-level aliases for backward compat (e.g. train.py passing epochs)
+CONF_THRESHOLD  = 0.72
+VOTE_WINDOW     = 3
+SEQUENCE_WINDOW = 10
 
 
 class DroneAI:
@@ -54,9 +69,9 @@ class DroneAI:
     ]
 
     def __init__(self, feature_names: list[str],
-                 window: int = SEQUENCE_WINDOW):
+                 window: int = None):
         self.feature_names = feature_names
-        self.window        = window
+        self.window        = window if window is not None else _sequence_window()
         self.n_features    = len(feature_names)
         self.scaler        = StandardScaler()
         self.model         = self._build()
@@ -64,26 +79,31 @@ class DroneAI:
         self._cm           = None
 
         # Runtime hysteresis state (reset on each new mission)
-        self._frame_buffer  = deque(maxlen=window)   # raw unscaled frames
-        self._vote_buffer   = deque(maxlen=VOTE_WINDOW)
+        self._frame_buffer  = deque(maxlen=self.window)
+        self._vote_buffer   = deque(maxlen=_vote_window())
         self._current_action = 0
         self._current_conf   = 0.0
 
     # ── Model architecture ────────────────────────────────────────────────────
 
     def _build(self) -> keras.Model:
+        cfg = _mcfg()
+        lstm_units = cfg.get('lstm_units', 32)
+        dense1     = cfg.get('dense1',     64)
+        dense2     = cfg.get('dense2',     32)
+        lr         = cfg.get('learning_rate', 3e-4)
+
         inp = keras.Input(shape=(self.window, self.n_features), name='sensor_seq')
 
-        # LSTM with return_sequences=False — outputs last hidden state
-        x = layers.LSTM(32, name='lstm')(inp)
+        x = layers.LSTM(lstm_units, name='lstm')(inp)
         x = layers.BatchNormalization()(x)
 
-        x = layers.Dense(64, name='d1')(x)
+        x = layers.Dense(dense1, name='d1')(x)
         x = layers.BatchNormalization()(x)
         x = layers.Activation('relu')(x)
         x = layers.Dropout(0.25)(x)
 
-        x = layers.Dense(32, name='d2')(x)
+        x = layers.Dense(dense2, name='d2')(x)
         x = layers.BatchNormalization()(x)
         x = layers.Activation('relu')(x)
         x = layers.Dropout(0.20)(x)
@@ -93,7 +113,7 @@ class DroneAI:
 
         model = keras.Model(inp, out, name='DroneAI_LSTM')
         model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=3e-4),
+            optimizer=keras.optimizers.Adam(learning_rate=lr),
             loss='sparse_categorical_crossentropy',
             metrics=['accuracy'],
         )
@@ -102,11 +122,15 @@ class DroneAI:
     # ── Training ──────────────────────────────────────────────────────────────
 
     def train(self, X_seq: np.ndarray, y: np.ndarray,
-              epochs: int = 60, batch_size: int = 64) -> keras.callbacks.History:
+              epochs: int = None, batch_size: int = None) -> keras.callbacks.History:
         """
         X_seq: (N, window, features) — sequence data from data_generator
         y    : (N,) class labels
         """
+        cfg        = _mcfg()
+        epochs     = epochs     if epochs     is not None else cfg.get('epochs',     60)
+        batch_size = batch_size if batch_size is not None else cfg.get('batch_size', 64)
+
         print(f"\n[MODEL] Architecture: LSTM({self.window} frames x {self.n_features} features)")
         print(f"[MODEL] Parameters:   {self.model.count_params()}")
 
@@ -189,9 +213,9 @@ class DroneAI:
         self._vote_buffer.append(raw_action)
 
         # Switch only if majority vote agrees + confidence high enough
-        if (len(self._vote_buffer) >= VOTE_WINDOW and
+        if (len(self._vote_buffer) >= _vote_window() and
                 all(v == raw_action for v in self._vote_buffer) and
-                raw_conf >= CONF_THRESHOLD):
+                raw_conf >= _conf_threshold()):
             self._current_action = raw_action
             self._current_conf   = raw_conf
 
@@ -267,19 +291,36 @@ class DroneAI:
     @classmethod
     def load(cls, model_dir: str = 'models') -> 'DroneAI':
         d = Path(model_dir)
-        feature_names = (d / 'feature_names.txt').read_text().splitlines()
+        keras_path  = d / 'drone_ai_model.keras'
+        scaler_path = d / 'scaler.json'
+        feat_path   = d / 'feature_names.txt'
 
-        window = SEQUENCE_WINDOW
-        if (d / 'window_size.txt').exists():
-            window = int((d / 'window_size.txt').read_text().strip())
+        missing = [str(p) for p in (keras_path, scaler_path, feat_path) if not p.exists()]
+        if missing:
+            raise FileNotFoundError(
+                f"[MODEL] Missing model files in '{model_dir}/': {missing}. "
+                "Run train.py first to generate them."
+            )
 
-        instance = cls(feature_names, window=window)
-        instance.model = keras.models.load_model(str(d / 'drone_ai_model.keras'))
+        try:
+            feature_names = feat_path.read_text().splitlines()
 
-        sd = json.loads((d / 'scaler.json').read_text())
-        instance.scaler.mean_           = np.array(sd['mean'])
-        instance.scaler.scale_          = np.array(sd['scale'])
-        instance.scaler.n_features_in_  = len(feature_names)
+            window = _sequence_window()
+            if (d / 'window_size.txt').exists():
+                window = int((d / 'window_size.txt').read_text().strip())
+
+            instance = cls(feature_names, window=window)
+            instance.model = keras.models.load_model(str(keras_path))
+
+            sd = json.loads(scaler_path.read_text())
+            instance.scaler.mean_          = np.array(sd['mean'])
+            instance.scaler.scale_         = np.array(sd['scale'])
+            instance.scaler.n_features_in_ = len(feature_names)
+
+        except Exception as e:
+            raise RuntimeError(
+                f"[MODEL] Failed to load model from '{model_dir}/': {e}"
+            ) from e
 
         print(f"[MODEL] Loaded LSTM model from {model_dir}/ (window={window})")
         return instance
