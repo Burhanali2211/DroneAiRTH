@@ -1,0 +1,4 @@
+tflite-runtime>=2.13
+numpy>=1.24,<2.0
+pymavlink>=2.4.37
+PyYAML>=6.0,<7.0
