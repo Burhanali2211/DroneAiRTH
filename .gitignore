@@ -11,9 +11,9 @@ env/
 .venv/
 
 # Generated data / artifacts
-data/
+
 logs/
-outputs/
+
 
 # Trained models (keep .keras and .tflite, ignore old formats)
 models/*.h5
